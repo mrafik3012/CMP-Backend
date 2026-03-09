@@ -102,33 +102,39 @@ def send_login_otp_to_user(db: Session, phone: str) -> dict:
             db.commit()
             log.info("send_login_otp: user found by test email (id=%s email=%s)", user.id, user.email)
             print(f"[OTP] user found by test email id={user.id} email={user.email}")
-    if not user:
-        log.info("send_login_otp: user not found, auto-creating for demo: %r", normalized)
-        print(f"[OTP] auto-creating user for normalized={normalized!r}")
-        user = User(
-            name=f"Guest {normalized[-4:]}",
-            email=None,
-            phone=normalized,
-            password_hash="[AUTO-GENERATED]",
-            role="Viewer",
-            is_active=True,
-            is_phone_verified=True,
-            plan="trial",
-            trial_started_at=datetime.utcnow(),
-            trial_expires_at=datetime.utcnow() + timedelta(days=365),
-            storage_used_mb=0.0,
-        )
-        db.add(user)
+    try:
+        if not user:
+            log.info("send_login_otp: user not found, auto-creating for demo: %r", normalized)
+            user = User(
+                name=f"Guest {normalized[-4:]}",
+                email=None,
+                phone=normalized,
+                password_hash=get_password_hash("demo-password"),
+                role="Viewer",
+                is_active=True,
+                is_phone_verified=True,
+                plan="trial",
+                trial_started_at=datetime.utcnow(),
+                trial_expires_at=datetime.utcnow() + timedelta(days=365),
+                storage_used_mb=0.0,
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+
+        if not user.is_active:
+            return {"error": "account_disabled"}
+
+        otp = str(random.randint(100000, 999999))
+        user.phone_otp_hash = pwd_context.hash(otp)
+        user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
         db.commit()
-        db.refresh(user)
-    if not user.is_active:
-        return {"error": "account_disabled"}
-    otp = str(random.randint(100000, 999999))
-    user.phone_otp_hash = pwd_context.hash(otp)
-    user.otp_expires_at = datetime.utcnow() + timedelta(minutes=10)
-    db.commit()
-    send_login_otp(normalized, otp, user.email)
-    return {"message": "OTP sent to your phone"}
+        
+        send_login_otp(normalized, otp, user.email)
+        return {"message": "OTP sent to your phone"}
+    except Exception as e:
+        log.error("send_login_otp error: %s", str(e), exc_info=True)
+        return {"error": f"Internal Error: {str(e)}"}
 
 
 def verify_login_otp_and_get_user(
