@@ -49,9 +49,10 @@ def set_token_cookies(
         key="access_token",
         value=tokens.access_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
-        max_age=settings.access_token_expire_minutes * 60
+        secure=True,  # Required for samesite="none"
+        samesite="none",
+        max_age=settings.access_token_expire_minutes * 60,
+        domain=None  # Let the browser handle domain
     )
     if remember_me is None:
         refresh_days = settings.refresh_token_expire_days
@@ -64,9 +65,10 @@ def set_token_cookies(
         key="refresh_token",
         value=tokens.refresh_token,
         httponly=True,
-        secure=False,
-        samesite="lax",
+        secure=True,  # Required for samesite="none"
+        samesite="none",
         max_age=refresh_days * 24 * 3600,
+        domain=None
     )
 
 @router.get("/debug-otp-db")
