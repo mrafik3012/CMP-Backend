@@ -165,16 +165,8 @@ def verify_login_otp_and_get_user(
             db.commit()
     if not user:
         return None
-    if not user.phone_otp_hash or not user.otp_expires_at:
-        return None
-    if datetime.utcnow() > user.otp_expires_at:
-        return None
-    # Accept any OTP for now
-    # if not pwd_context.verify(otp, user.phone_otp_hash):
-    #     return None
-    user.phone_otp_hash = None
-    user.otp_expires_at = None
-    db.commit()
+        
+    # FOR DEMO: Completely bypass OTP verification
     return create_tokens_for_user(user, remember_me=remember_me)
 
 
@@ -230,13 +222,11 @@ def verify_signup_otp(db: Session, phone: str, otp: str) -> TokenResponse | None
     user = db.query(User).filter(
         User.phone == normalized,
         User.is_active == False,
-        User.phone_otp_hash.is_not(None),
     ).first()
-    if not user or not user.otp_expires_at or datetime.utcnow() > user.otp_expires_at:
+    if not user:
         return None
-    # Accept any OTP for now
-    # if not pwd_context.verify(otp, user.phone_otp_hash):
-    #     return None
+        
+    # FOR DEMO: Completely bypass OTP verification
     user.phone_otp_hash = None
     user.otp_expires_at = None
     user.is_phone_verified = True
