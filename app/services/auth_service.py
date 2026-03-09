@@ -133,6 +133,8 @@ def send_login_otp_to_user(db: Session, phone: str) -> dict:
         send_login_otp(normalized, otp, user.email)
         return {"message": "OTP sent to your phone"}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         log.error("send_login_otp error: %s", str(e), exc_info=True)
         return {"error": f"Internal Error: {str(e)}"}
 

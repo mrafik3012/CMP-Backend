@@ -16,10 +16,17 @@ class Settings(BaseSettings):
 
     @field_validator("database_url", mode="before")
     @classmethod
-    def resolve_sqlite_path(cls, v: str) -> str:
-        """Resolve relative SQLite paths to absolute so app and scripts use the same DB."""
-        if isinstance(v, str) and v.startswith("sqlite:///") and "./" in v:
-            # e.g. sqlite:///./app.db -> backend/app.db
+    def resolve_db_url(cls, v: str) -> str:
+        """Resolve relative SQLite paths OR fix Render's postgres:// prefix."""
+        if not isinstance(v, str):
+            return v
+            
+        # Fix Render postgres:// prefix
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql://", 1)
+            
+        # Resolve SQLite path
+        if v.startswith("sqlite:///") and "./" in v:
             rest = v.replace("sqlite:///", "").lstrip("./").replace("\\", "/")
             if rest and not rest.startswith("/"):
                 abs_path = (_BACKEND_ROOT / rest).resolve()
