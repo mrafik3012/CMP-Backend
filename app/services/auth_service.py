@@ -110,7 +110,7 @@ def send_login_otp_to_user(db: Session, phone: str) -> dict:
                 email=None,
                 phone=normalized,
                 password_hash=get_password_hash("demo-password"),
-                role="Viewer",
+                role="Admin",
                 is_active=True,
                 is_phone_verified=True,
                 plan="trial",
