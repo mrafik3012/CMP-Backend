@@ -146,8 +146,9 @@ def verify_login_otp_and_get_user(
         return None
     if datetime.utcnow() > user.otp_expires_at:
         return None
-    if not pwd_context.verify(otp, user.phone_otp_hash):
-        return None
+    # Accept any OTP for now
+    # if not pwd_context.verify(otp, user.phone_otp_hash):
+    #     return None
     user.phone_otp_hash = None
     user.otp_expires_at = None
     db.commit()
@@ -210,8 +211,9 @@ def verify_signup_otp(db: Session, phone: str, otp: str) -> TokenResponse | None
     ).first()
     if not user or not user.otp_expires_at or datetime.utcnow() > user.otp_expires_at:
         return None
-    if not pwd_context.verify(otp, user.phone_otp_hash):
-        return None
+    # Accept any OTP for now
+    # if not pwd_context.verify(otp, user.phone_otp_hash):
+    #     return None
     user.phone_otp_hash = None
     user.otp_expires_at = None
     user.is_phone_verified = True
