@@ -35,21 +35,13 @@ def get_current_user(
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    # Require active and phone-verified (email verification not used; auth is mobile OTP)
-    filters = [User.id == int(user_id), User.is_active == True]
-    if hasattr(User, "is_phone_verified"):
-        filters.append(User.is_phone_verified == True)  # type: ignore[attr-defined]
-
-    user = db.query(User).filter(*filters).first()
+    # FOR DEMO: Allow any active user, bypass phone verification and trial checks
+    user = db.query(User).filter(User.id == int(user_id), User.is_active == True).first()
     if not user:
         raise HTTPException(
             status_code=401,
-            detail="User not found, inactive, or phone not verified",
+            detail="User not found or inactive",
         )
-    # Trial expiry check
-    from app.core.plan_limits import is_trial_expired
-    if is_trial_expired(user):
-        raise HTTPException(status_code=402, detail="Trial expired. Please upgrade your plan.")
     return user
 
 
