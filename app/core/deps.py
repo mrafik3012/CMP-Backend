@@ -1,0 +1,72 @@
+"""FastAPI dependencies: get_db, get_current_user, role checks. FR-AUTH-005."""
+from typing import Annotated
+
+from fastapi import Depends, HTTPException, Request
+from sqlalchemy.orm import Session
+
+from app.core.security import decode_token
+from app.db.session import get_db
+from app.db.models import User
+
+
+def get_token_from_request(request: Request) -> str | None:
+    """FR-AUTH-001: Prefer httpOnly cookie, fallback to Authorization header."""
+    token = request.cookies.get("access_token")
+    if token:
+        return token
+    auth = request.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        return auth[7:]
+    return None
+
+
+def get_current_user(
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+) -> User:
+    """Require valid access token; return user. NFR-SEC-001."""
+    token = get_token_from_request(request)
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "access":
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # Require active and phone-verified (email verification not used; auth is mobile OTP)
+    filters = [User.id == int(user_id), User.is_active == True]
+    if hasattr(User, "is_phone_verified"):
+        filters.append(User.is_phone_verified == True)  # type: ignore[attr-defined]
+
+    user = db.query(User).filter(*filters).first()
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="User not found, inactive, or phone not verified",
+        )
+    # Trial expiry check
+    from app.core.plan_limits import is_trial_expired
+    if is_trial_expired(user):
+        raise HTTPException(status_code=402, detail="Trial expired. Please upgrade your plan.")
+    return user
+
+
+def require_roles(*allowed_roles: str):
+    """Dependency factory: require current user to have one of allowed_roles."""
+
+    def _check(
+        current_user: Annotated[User, Depends(get_current_user)],
+    ) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+
+    return _check
+
+
+# Convenience dependencies
+RequireAdmin = Annotated[User, Depends(require_roles("Admin"))]
+RequirePMOrAdmin = Annotated[User, Depends(require_roles("Admin", "Project Manager"))]
+CurrentUser = Annotated[User, Depends(get_current_user)]
