@@ -103,9 +103,24 @@ def send_login_otp_to_user(db: Session, phone: str) -> dict:
             log.info("send_login_otp: user found by test email (id=%s email=%s)", user.id, user.email)
             print(f"[OTP] user found by test email id={user.id} email={user.email}")
     if not user:
-        log.warning("send_login_otp: no user for normalized=%r", normalized)
-        print(f"[OTP] no user found for normalized={normalized!r}")
-        return {"error": "phone_not_found"}
+        log.info("send_login_otp: user not found, auto-creating for demo: %r", normalized)
+        print(f"[OTP] auto-creating user for normalized={normalized!r}")
+        user = User(
+            name=f"Guest {normalized[-4:]}",
+            email=None,
+            phone=normalized,
+            password_hash="[AUTO-GENERATED]",
+            role="Viewer",
+            is_active=True,
+            is_phone_verified=True,
+            plan="trial",
+            trial_started_at=datetime.utcnow(),
+            trial_expires_at=datetime.utcnow() + timedelta(days=365),
+            storage_used_mb=0.0,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     if not user.is_active:
         return {"error": "account_disabled"}
     otp = str(random.randint(100000, 999999))
